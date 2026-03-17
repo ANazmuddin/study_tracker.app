@@ -8,6 +8,8 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    // Mengambil nama dari email, jika null kita sapa dengan nama panggilanmu
+    final displayName = user?.email?.split('@')[0] ?? "Ahnan";
 
     return Scaffold(
       body: SafeArea(
@@ -16,7 +18,7 @@ class DashboardPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
+              // --- HEADER ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -24,22 +26,26 @@ class DashboardPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Selamat Datang,", style: TextStyle(color: Colors.grey[400])),
-                      Text(user?.email?.split('@')[0] ?? "Pelajar",
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      Text(
+                        displayName,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
                   IconButton(
-                      onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                        Navigator.of(context).pop();
-                      },
-                      icon: const Icon(Icons.logout_rounded, color: Colors.redAccent)
+                    onPressed: () async {
+                      await FirebaseAuth.instance.signOut();
+                      if (context.mounted) {
+                        Navigator.of(context).pushReplacementNamed('/');
+                      }
+                    },
+                    icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
                   ),
                 ],
               ),
               const SizedBox(height: 30),
 
-              // Progres Card (Modern Glass)
+              // --- PROGRES CARD (GLASSMORPHISM) ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(25),
@@ -72,7 +78,7 @@ class DashboardPage extends StatelessWidget {
               const Text("Aktivitas Terakhir", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 15),
 
-              // List Real-time dari Firestore
+              // --- LIST REAL-TIME DARI FIRESTORE ---
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('study_logs')
@@ -80,20 +86,55 @@ class DashboardPage extends StatelessWidget {
                     .orderBy('timestamp', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text("Belum ada data belajar."));
+                  // 1. Tangkap Error Index Firebase di sini
+                  if (snapshot.hasError) {
+                    return Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                      ),
+                      child: const Text(
+                        "Data gagal dimuat. Cek Console Android Studio untuk klik link pembuatan Index Firebase!",
+                        style: TextStyle(color: Colors.redAccent),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
                   }
 
+                  // 2. Tampilkan Loading
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: CircularProgressIndicator(color: Colors.blueAccent),
+                      ),
+                    );
+                  }
+
+                  // 3. Tampilkan Pesan Kosong Jika Belum Ada Data
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Text("Belum ada data belajar.", style: TextStyle(color: Colors.grey[500])),
+                      ),
+                    );
+                  }
+
+                  // 4. Tampilkan List Aktivitas
                   return ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: snapshot.data!.docs.length,
                     itemBuilder: (context, index) {
                       var doc = snapshot.data!.docs[index];
-                      return _buildStudyTile(doc['activity'], doc['duration']);
+                      // Fallback jika data lama belum punya field 'category'
+                      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                      String category = data.containsKey('category') ? data['category'] : 'Lainnya';
+
+                      return _buildStudyTile(data['activity'], data['duration'], category);
                     },
                   );
                 },
@@ -102,16 +143,29 @@ class DashboardPage extends StatelessWidget {
           ),
         ),
       ),
+
+      // --- TOMBOL TAMBAH LOG ---
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context),
-        label: const Text("Tambah Log", style: TextStyle(color: Colors.white)),
+        label: const Text("Log Sesi", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         icon: const Icon(Icons.add, color: Colors.white),
         backgroundColor: Colors.blueAccent,
       ),
     );
   }
 
-  Widget _buildStudyTile(String title, String duration) {
+  // --- WIDGET ITEM LIST ---
+  Widget _buildStudyTile(String title, String duration, String category) {
+    IconData getIcon() {
+      switch (category) {
+        case 'Coding': return Icons.code_rounded;
+        case 'Design': return Icons.brush_rounded;
+        case 'Business': return Icons.business_center_rounded;
+        case 'Language': return Icons.language_rounded;
+        default: return Icons.book_rounded;
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(18),
@@ -123,70 +177,162 @@ class DashboardPage extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.bookmark_outline, color: Colors.blueAccent),
-              const SizedBox(width: 15),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            ],
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(getIcon(), color: Colors.blueAccent, size: 24),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(category, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 10),
           Text("$duration Jam", style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
         ],
       ),
     );
   }
 
+  // --- BOTTOM SHEET TAMBAH LOG ---
   void _showAddDialog(BuildContext context) {
     final activityController = TextEditingController();
     final durationController = TextEditingController();
+
+    String selectedCategory = 'Coding';
+    final List<String> categories = ['Coding', 'Design', 'Business', 'Language'];
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1E293B),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 25, right: 25, top: 25),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Apa yang dipelajari?", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            TextField(
-              controller: activityController,
-              decoration: InputDecoration(hintText: "Nama Aktivitas", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: durationController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(hintText: "Durasi (Jam)", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
-            ),
-            const SizedBox(height: 25),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                onPressed: () {
-                  FirebaseFirestore.instance.collection('study_logs').add({
-                    'activity': activityController.text,
-                    'duration': durationController.text,
-                    'userId': FirebaseAuth.instance.currentUser?.uid,
-                    'timestamp': FieldValue.serverTimestamp(),
-                  });
-                  Navigator.pop(context);
-                },
-                child: const Text("Simpan Progres", style: TextStyle(color: Colors.white)),
-              ),
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setModalState) {
+              return Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                    left: 25, right: 25, top: 30
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Log Session", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 25),
+
+                    const Text("TOPIC", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: activityController,
+                      decoration: InputDecoration(
+                          hintText: "What did you learn today?",
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.05),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    const Text("CATEGORY", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                    const SizedBox(height: 10),
+
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: categories.map((cat) {
+                        bool isSelected = selectedCategory == cat;
+                        return GestureDetector(
+                          onTap: () {
+                            setModalState(() {
+                              selectedCategory = cat;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.blueAccent : Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                                cat,
+                                style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.grey[400],
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+                                )
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 25),
+                    const Text("DURATION (HOURS)", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: durationController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                          hintText: "Contoh: 1.5",
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.05),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
+                      ),
+                    ),
+
+                    const SizedBox(height: 35),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 55,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                        ),
+                        onPressed: () {
+                          if (activityController.text.isEmpty || durationController.text.isEmpty) return;
+
+                          FirebaseFirestore.instance.collection('study_logs').add({
+                            'activity': activityController.text.trim(),
+                            'duration': durationController.text.trim(),
+                            'category': selectedCategory,
+                            'userId': FirebaseAuth.instance.currentUser?.uid,
+                            'timestamp': FieldValue.serverTimestamp(),
+                          });
+                          Navigator.pop(context); // Tutup bottom sheet
+                        },
+                        child: const Text("Save Entry", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              );
+            }
+        );
+      },
     );
   }
 }
