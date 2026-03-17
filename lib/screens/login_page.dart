@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'main_screen.dart';
 import 'register_page.dart';
 import 'dashboard_page.dart';
 
@@ -38,7 +39,7 @@ class _LoginPageState extends State<LoginPage> {
         // Pindah ke Dashboard dan hapus history halaman login
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardPage()),
+          MaterialPageRoute(builder: (context) => const MainScreen()),
         );
       }
     } on FirebaseAuthException catch (e) {
