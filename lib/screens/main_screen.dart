@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_page.dart';
 import 'stats_page.dart';
+import 'profile_page.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -16,7 +17,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _pages = [
     const DashboardPage(),
     const StatsPage(),
-    const Center(child: Text("Profil - Segera Hadir", style: TextStyle(fontSize: 20))),
+    const ProfilePage(),
   ];
 
   @override
