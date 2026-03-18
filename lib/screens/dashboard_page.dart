@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:percent_indicator/percent_indicator.dart'; // IMPORT BARU
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -8,7 +9,6 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    // Mengambil nama dari email, jika null kita sapa dengan nama panggilanmu
     final displayName = user?.email?.split('@')[0] ?? "Ahnan";
 
     return Scaffold(
@@ -25,10 +25,10 @@ class DashboardPage extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Selamat Datang,", style: TextStyle(color: Colors.grey[400])),
+                      Text("Good Morning,", style: TextStyle(color: Colors.grey[400], fontSize: 16)),
                       Text(
                         displayName,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -43,42 +43,10 @@ class DashboardPage extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 30),
-
-              // --- PROGRES CARD (GLASSMORPHISM) ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(25),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: LinearGradient(
-                    colors: [Colors.blueAccent, Colors.blueAccent.withOpacity(0.7)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blueAccent.withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    )
-                  ],
-                ),
-                child: const Column(
-                  children: [
-                    Text("Total Belajar Hari Ini", style: TextStyle(color: Colors.white70)),
-                    SizedBox(height: 10),
-                    Text("04:30", style: TextStyle(fontSize: 45, fontWeight: FontWeight.bold, color: Colors.white)),
-                    Text("Jam : Menit", style: TextStyle(color: Colors.white60, fontSize: 12)),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 35),
-              const Text("Aktivitas Terakhir", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 15),
 
-              // --- LIST REAL-TIME DARI FIRESTORE ---
+              // --- KESELURUHAN KONTEN (STREAM BUILDER) ---
+              // Kita bungkus Card & List dalam satu Stream agar efisien
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('study_logs')
@@ -86,56 +54,93 @@ class DashboardPage extends StatelessWidget {
                     .orderBy('timestamp', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
-                  // 1. Tangkap Error Index Firebase di sini
                   if (snapshot.hasError) {
-                    return Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
-                      ),
-                      child: const Text(
-                        "Data gagal dimuat. Cek Console Android Studio untuk klik link pembuatan Index Firebase!",
-                        style: TextStyle(color: Colors.redAccent),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
+                    return const Center(child: Text("Terjadi kesalahan load data."));
                   }
-
-                  // 2. Tampilkan Loading
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(color: Colors.blueAccent),
-                      ),
-                    );
+                    return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
                   }
 
-                  // 3. Tampilkan Pesan Kosong Jika Belum Ada Data
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Text("Belum ada data belajar.", style: TextStyle(color: Colors.grey[500])),
-                      ),
-                    );
+                  // 1. Logika Menghitung Total Belajar "Hari Ini"
+                  double todayHours = 0.0;
+                  double targetHours = 6.0; // Misal target belajarmu 6 jam sehari
+                  List<QueryDocumentSnapshot> docs = snapshot.data?.docs ?? [];
+
+                  DateTime now = DateTime.now();
+                  DateTime startOfDay = DateTime(now.year, now.month, now.day);
+
+                  for (var doc in docs) {
+                    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                    if (data['timestamp'] != null) {
+                      DateTime logTime = (data['timestamp'] as Timestamp).toDate();
+                      // Jika log terjadi pada hari ini
+                      if (logTime.isAfter(startOfDay) || logTime.isAtSameMomentAs(startOfDay)) {
+                        todayHours += double.tryParse(data['duration'].toString()) ?? 0.0;
+                      }
+                    }
                   }
 
-                  // 4. Tampilkan List Aktivitas
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      var doc = snapshot.data!.docs[index];
-                      // Fallback jika data lama belum punya field 'category'
-                      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-                      String category = data.containsKey('category') ? data['category'] : 'Lainnya';
+                  // Hitung persentase (Maksimal 1.0 atau 100%)
+                  double percent = todayHours / targetHours;
+                  if (percent > 1.0) percent = 1.0;
 
-                      return _buildStudyTile(data['activity'], data['duration'], category);
-                    },
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- CIRCULAR PROGRESS CARD ---
+                      Center(
+                        child: CircularPercentIndicator(
+                          radius: 110.0,
+                          lineWidth: 18.0,
+                          animation: true,
+                          percent: percent,
+                          circularStrokeCap: CircularStrokeCap.round,
+                          backgroundColor: Colors.white.withOpacity(0.05),
+                          progressColor: Colors.blueAccent,
+                          center: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("GOAL", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                              const SizedBox(height: 5),
+                              Text(
+                                "${(percent * 100).toInt()}%",
+                                style: const TextStyle(fontSize: 45, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              const SizedBox(height: 5),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  "${todayHours.toStringAsFixed(1)} / ${targetHours.toInt()} hrs",
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 45),
+                      const Text("Recent Activity", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 15),
+
+                      // --- LIST AKTIVITAS ---
+                      docs.isEmpty
+                          ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text("Belum ada aktivitas hari ini.", style: TextStyle(color: Colors.grey))))
+                          : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          var data = docs[index].data() as Map<String, dynamic>;
+                          String category = data.containsKey('category') ? data['category'] : 'Lainnya';
+                          return _buildStudyTile(data['activity'], data['duration'].toString(), category);
+                        },
+                      ),
+                    ],
                   );
                 },
               ),
@@ -145,16 +150,16 @@ class DashboardPage extends StatelessWidget {
       ),
 
       // --- TOMBOL TAMBAH LOG ---
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context),
-        label: const Text("Log Sesi", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        icon: const Icon(Icons.add, color: Colors.white),
         backgroundColor: Colors.blueAccent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: const Icon(Icons.add, color: Colors.white, size: 30),
       ),
     );
   }
 
-  // --- WIDGET ITEM LIST ---
+  // --- WIDGET ITEM LIST (Tetap Sama) ---
   Widget _buildStudyTile(String title, String duration, String category) {
     IconData getIcon() {
       switch (category) {
@@ -170,9 +175,8 @@ class DashboardPage extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: const Color(0xFF1E222D), // Warna background card yang lebih gelap sesuai UI
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -181,10 +185,10 @@ class DashboardPage extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.blueAccent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(getIcon(), color: Colors.blueAccent, size: 24),
                 ),
@@ -200,7 +204,7 @@ class DashboardPage extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      Text(category, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                      Text("$category • Completed", style: TextStyle(color: Colors.grey[400], fontSize: 12)),
                     ],
                   ),
                 ),
@@ -208,14 +212,20 @@ class DashboardPage extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text("$duration Jam", style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text("${duration}h", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  // --- BOTTOM SHEET TAMBAH LOG ---
+  // --- BOTTOM SHEET TAMBAH LOG (Tetap Sama) ---
   void _showAddDialog(BuildContext context) {
+    // ... (Kode Bottom Sheet sama persis seperti sebelumnya)
     final activityController = TextEditingController();
     final durationController = TextEditingController();
 
@@ -316,12 +326,12 @@ class DashboardPage extends StatelessWidget {
 
                           FirebaseFirestore.instance.collection('study_logs').add({
                             'activity': activityController.text.trim(),
-                            'duration': durationController.text.trim(),
+                            'duration': double.tryParse(durationController.text.trim()) ?? 0.0,
                             'category': selectedCategory,
                             'userId': FirebaseAuth.instance.currentUser?.uid,
                             'timestamp': FieldValue.serverTimestamp(),
                           });
-                          Navigator.pop(context); // Tutup bottom sheet
+                          Navigator.pop(context);
                         },
                         child: const Text("Save Entry", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
