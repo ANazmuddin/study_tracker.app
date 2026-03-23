@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
 // --- HELPER UNTUK STYLE KATEGORI ---
-// Agar warna dan ikon terpusat dan konsisten
 class CategoryStyle {
   final IconData icon;
   final Color color;
@@ -12,24 +11,13 @@ class CategoryStyle {
   const CategoryStyle({required this.icon, required this.color});
 }
 
-// Fungsi global untuk mendapatkan style berdasarkan nama kategori
 CategoryStyle _getCategoryStyle(String category) {
   switch (category) {
-    case 'Coding':
-    // Ungu/Indigo cerah sesuai contoh 'Log Session'
-      return const CategoryStyle(icon: Icons.code_rounded, color: Colors.indigoAccent);
-    case 'Design':
-    // Pink/Merah cerah cerah
-      return const CategoryStyle(icon: Icons.brush_rounded, color: Colors.pinkAccent);
-    case 'Business':
-    // Kuning/Oranye cerah
-      return const CategoryStyle(icon: Icons.business_center_rounded, color: Colors.amberAccent);
-    case 'Language':
-    // Hijau/Teal cerah
-      return const CategoryStyle(icon: Icons.language_rounded, color: Colors.tealAccent);
-    default:
-    // Warna default jika kategori lain
-      return const CategoryStyle(icon: Icons.book_rounded, color: Colors.cyanAccent);
+    case 'Coding': return const CategoryStyle(icon: Icons.code_rounded, color: Colors.indigoAccent);
+    case 'Design': return const CategoryStyle(icon: Icons.brush_rounded, color: Colors.pinkAccent);
+    case 'Business': return const CategoryStyle(icon: Icons.business_center_rounded, color: Colors.amberAccent);
+    case 'Language': return const CategoryStyle(icon: Icons.language_rounded, color: Colors.tealAccent);
+    default: return const CategoryStyle(icon: Icons.book_rounded, color: Colors.cyanAccent);
   }
 }
 
@@ -93,7 +81,6 @@ class DashboardPage extends StatelessWidget {
                     return const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()));
                   }
 
-                  // Logika Menghitung Total Belajar "Hari Ini"
                   double todayHours = 0.0;
                   double targetHours = 6.0;
                   List<QueryDocumentSnapshot> docs = snapshot.data?.docs ?? [];
@@ -117,7 +104,7 @@ class DashboardPage extends StatelessWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- CIRCULAR PROGRESS CARD (COLORFUL SPECTRUM) ---
+                      // --- CIRCULAR PROGRESS CARD ---
                       Center(
                         child: CircularPercentIndicator(
                           radius: 110.0,
@@ -126,13 +113,8 @@ class DashboardPage extends StatelessWidget {
                           percent: percent,
                           circularStrokeCap: CircularStrokeCap.round,
                           backgroundColor: Colors.white.withOpacity(0.05),
-                          // Ganti warna solid blue dengan gradien warna-warni seperti contoh UI
                           linearGradient: const LinearGradient(
-                            colors: [
-                              Colors.purpleAccent,
-                              Colors.indigoAccent,
-                              Colors.pinkAccent,
-                            ],
+                            colors: [Colors.purpleAccent, Colors.indigoAccent, Colors.pinkAccent],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -149,7 +131,7 @@ class DashboardPage extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                 decoration: BoxDecoration(
-                                    color: Colors.blueAccent.withOpacity(0.1), // Sedikit warna background biru
+                                    color: Colors.blueAccent.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(color: Colors.blueAccent.withOpacity(0.2))
                                 ),
@@ -167,7 +149,7 @@ class DashboardPage extends StatelessWidget {
                       const Text("Recent Activity", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 15),
 
-                      // --- LIST AKTIVITAS DENGAN IKON BERWARNA ---
+                      // --- LIST AKTIVITAS DENGAN SWIPE TO DELETE ---
                       docs.isEmpty
                           ? const Center(child: Padding(padding: EdgeInsets.all(30), child: Text("No activity today.", style: TextStyle(color: Colors.grey))))
                           : ListView.builder(
@@ -175,14 +157,81 @@ class DashboardPage extends StatelessWidget {
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: docs.length,
                         itemBuilder: (context, index) {
-                          var data = docs[index].data() as Map<String, dynamic>;
-                          // Tentukan kategori, default 'Lainnya' jika null
+                          var doc = docs[index];
+                          var data = doc.data() as Map<String, dynamic>;
                           String category = data.containsKey('category') ? data['category'] : 'Lainnya';
 
-                          return _buildStudyTile(
-                              data['activity'],
-                              data['duration'].toString(),
-                              category
+                          // WIDGET DISMISSIBLE UNTUK SWIPE
+                          return Dismissible(
+                            // Key wajib ada agar Flutter tahu item mana yang dihapus
+                            key: Key(doc.id),
+                            direction: DismissDirection.endToStart, // Hanya bisa di-swipe dari kanan ke kiri
+
+                            // Tampilan saat item di-swipe (Background Merah)
+                            background: Container(
+                              margin: const EdgeInsets.only(bottom: 15),
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              alignment: Alignment.centerRight,
+                              child: const Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 32),
+                            ),
+
+                            // Dialog Konfirmasi sebelum dihapus
+                            confirmDismiss: (direction) async {
+                              return await showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    backgroundColor: const Color(0xFF1E293B),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                    title: const Text("Hapus Log?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    content: const Text("Data ini akan dihapus secara permanen dari statistikmu.", style: TextStyle(color: Colors.grey)),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.redAccent,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                                        ),
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        child: const Text("Hapus", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+
+                            // Aksi saat user menekan tombol "Hapus" di dialog
+                            onDismissed: (direction) async {
+                              // Menghapus dokumen spesifik di Firebase berdasarkan ID-nya
+                              await FirebaseFirestore.instance.collection('study_logs').doc(doc.id).delete();
+
+                              // Memunculkan pesan sukses kecil di bawah layar
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text("Log aktivitas berhasil dihapus", style: TextStyle(fontWeight: FontWeight.bold)),
+                                    backgroundColor: Colors.teal,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                  ),
+                                );
+                              }
+                            },
+
+                            // Menampilkan Card aktivitas aslinya
+                            child: _buildStudyTile(
+                                data['activity'],
+                                data['duration'].toString(),
+                                category
+                            ),
                           );
                         },
                       ),
@@ -195,19 +244,18 @@ class DashboardPage extends StatelessWidget {
         ),
       ),
 
-      // --- TOMBOL TAMBAH LOG (Modern Minimalist) ---
+      // --- TOMBOL TAMBAH LOG ---
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context),
-        backgroundColor: Colors.indigoAccent, // Warna FAB yang lebih modern
+        backgroundColor: Colors.indigoAccent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: const Icon(Icons.add_rounded, color: Colors.white, size: 35),
       ),
     );
   }
 
-  // --- WIDGET ITEM LIST (COLORFUL ICON) ---
+  // --- WIDGET ITEM LIST ---
   Widget _buildStudyTile(String title, String duration, String category) {
-    // Ambil style kategori (ikon & warna) berdasarkan nama kategori
     CategoryStyle style = _getCategoryStyle(category);
 
     return Container(
@@ -223,15 +271,13 @@ class DashboardPage extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                // Container Ikon dengan Warna Kategori Spesifik
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    // Latar belakang ikon transparan sesuai warna kategori
                     color: style.color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(style.icon, color: style.color, size: 24), // Ikon berwarna cerah
+                  child: Icon(style.icon, color: style.color, size: 24),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
@@ -259,12 +305,11 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  // --- BOTTOM SHEET TAMBAH LOG (COLORFUL CHIPS) ---
+  // --- BOTTOM SHEET TAMBAH LOG ---
   void _showAddDialog(BuildContext context) {
     final activityController = TextEditingController();
     final durationController = TextEditingController();
 
-    // Default kategori
     String selectedCategory = 'Coding';
     final List<String> categories = ['Coding', 'Design', 'Business', 'Language'];
 
@@ -304,13 +349,11 @@ class DashboardPage extends StatelessWidget {
                     const Text("CATEGORY", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                     const SizedBox(height: 10),
 
-                    // Membuat tombol chip (Coding, Design, dll) dengan Warna Kategori Spesifik saat dipilih
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       children: categories.map((cat) {
                         bool isSelected = selectedCategory == cat;
-                        // Ambil warna spesifik kategori ini
                         Color catColor = _getCategoryStyle(cat).color;
 
                         return GestureDetector(
@@ -323,7 +366,6 @@ class DashboardPage extends StatelessWidget {
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                             decoration: BoxDecoration(
-                              // Ganti warna selected blue dengan warna spesifik kategori
                               color: isSelected ? catColor : Colors.white.withOpacity(0.05),
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -359,7 +401,7 @@ class DashboardPage extends StatelessWidget {
                       height: 55,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.indigoAccent, // Warna tombol save baru
+                            backgroundColor: Colors.indigoAccent,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
                         ),
                         onPressed: () {
@@ -367,7 +409,6 @@ class DashboardPage extends StatelessWidget {
 
                           FirebaseFirestore.instance.collection('study_logs').add({
                             'activity': activityController.text.trim(),
-                            // Simpan sebagai double agar mudah dihitung
                             'duration': double.tryParse(durationController.text.trim()) ?? 0.0,
                             'category': selectedCategory,
                             'userId': FirebaseAuth.instance.currentUser?.uid,
