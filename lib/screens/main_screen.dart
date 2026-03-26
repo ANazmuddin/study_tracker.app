@@ -16,7 +16,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = [
     const DashboardPage(),
-    const TimerPage(), // Tab ke-2 adalah Timer
+    const TimerPage(),
     const StatsPage(),
     const ProfilePage(),
   ];
@@ -24,13 +24,16 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
-
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+      
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF0F172A),
         selectedItemColor: Colors.indigoAccent,
         unselectedItemColor: Colors.grey[600],
-        type: BottomNavigationBarType.fixed,
+        type: BottomNavigationBarType.fixed, 
         showSelectedLabels: true,
         showUnselectedLabels: false,
         elevation: 0,
