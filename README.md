@@ -21,10 +21,6 @@ A modern, elegant, and interactive learning tracker application built with **Flu
     * `fl_chart` (For weekly statistical bar charts)
     * `percent_indicator` (For daily goal circular progress)
 
-## 📸 Screenshots
-*(TIPS: Nanti kamu bisa menambahkan link gambar screenshot aplikasimu di sini setelah di-upload ke GitHub)*
-> `![Dashboard](link-gambar-dashboard)` | `![Timer](link-gambar-timer)` | `![Stats](link-gambar-stats)`
-
 ---
 
 ## 🚀 How to Clone and Run Locally
