@@ -41,7 +41,7 @@ Make sure you have the following installed on your system:
 
 **1. Clone the repository**
 ```bash
-git clone [https://github.com/ANazmuddin/study_tracker.app.git](https://github.com/ANazmuddin/study_tracker.app.git)
+git clone https://github.com/ANazmuddin/study_tracker.app.git
 cd study-tracker
 ````
 
@@ -78,12 +78,8 @@ flutter run
 
 ## 👨‍💻 About the Author
 
-Developed by **Ahmad (Ahnan)**.
+Developed by **Ahmad Nazmuddin (Ahnan)**.
 I am a final-year Computer Science student and a freelance Full Stack Web Developer with a strong passion for building responsive, scalable, and user-centric applications across both web and mobile platforms.
 
-  * **GitHub:** [@username-github-kamu](https://www.google.com/search?q=https://github.com/ANazmuddin)
-  * **LinkedIn:** [Your LinkedIn Profile](https://www.google.com/search?q=https://linkedin.com/in/ahmadnazmuddin)
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
+  * **GitHub:** [@ANazmuddin](https://www.google.com/search?q=https://github.com/ANazmuddin)
+  * **LinkedIn:** [Ahmad Nazmuddin](https://www.google.com/search?q=https://linkedin.com/in/ahmadnazmuddin)
