@@ -1,5 +1,4 @@
 
-````markdown
 # 📚 Study Tracker App
 
 A modern, elegant, and interactive learning tracker application built with **Flutter** and **Firebase**. Designed to help users maintain their study streaks, track focus time using a built-in Pomodoro timer, and visualize their productivity through beautiful charts.
@@ -88,5 +87,3 @@ I am a final-year Computer Science student and a freelance Full Stack Web Develo
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
-
-```
